@@ -1,145 +1,105 @@
-# T-Shirt Design Studio - Interactive 3D Design Platform 
+# MOGREN Custom Apparel Designer
 
-A modern, interactive web application for custom t-shirt design with real-time 3D preview capabilities.
+MOGREN is a custom apparel design platform that allows users to personalize garments such as T-shirts, polos, hoodies, and other apparel using a visual design editor.
 
-## 🌐 Live Demo
+The application includes a 2D design canvas with front, back, left, and right views, along with 3D preview support for selected garment types.
 
-Take a look the live demo here 👉 https://t-shirt-designer-webapp.vercel.app/
+---
 
-![image](https://github.com/user-attachments/assets/1e2e4bd3-f480-49b7-a922-15ccd71067ea)
+## Features
 
-## 🌟 Features
+- Custom T-shirt and apparel designer
+- Front, Back, Left, and Right design views
+- Drag-and-drop design elements
+- Text customization
+- Image upload support
+- Fabric.js based 2D design canvas
+- Persistent design state across garment views
+- Garment color customization
+- Save Design functionality
+- Add custom design to cart
+- 3D garment preview for supported garment types
+- Fabric canvas to 3D texture synchronization
+- Responsive design interface
+- User authentication
+- Product catalog
+- Shopping cart
+- Order management
 
-### Design Capabilities
-- Interactive 2D canvas for precise designing
-- Real-time 3D preview with rotation capabilities
-- Dual-side design support (front and back)
-- Persistent design storage
+---
 
-### Design Tools
-- Text customization with multiple fonts
-- Image upload and manipulation
-- Line/shape drawing tools
-- Color customization
+## Current Supported Garments
 
-### User Interface
-- Intuitive sidebar tools
-- Responsive design for all devices
-- Real-time synchronization between 2D and 3D views
-- Automatic design saving
+The current designer supports:
 
-## 🛠️ Technology Stack
+- Crew Neck / Round Neck T-Shirt
+- Women's T-Shirt
+- Women's Polo
+- Hoodie
 
-- **Frontend Framework:** React.js
-- **State Management:** 
-  - Redux Toolkit (UI states)
-  - React Context (Canvas state)
-- **3D Rendering:** Three.js with React Three Fiber
-- **2D Canvas:** Fabric.js
-- **Styling:** Tailwind CSS
-- **Storage:** Browser LocalStorage
-- **UI Components:** Radix UI, Shadcn/ui
+### 3D Preview
 
-## 🏗 ️Project Architecture & Workflow
+3D preview is currently enabled for:
 
-### State Management
-The application uses a hybrid state management approach:
-- **Redux** for UI states (color selection, view management)
-- **Context API** for canvas state management
-- **LocalStorage** for design persistence
+- Crew Neck / Round Neck T-Shirt
 
-### Key Components
-📌 `CanvasProvider`: Manages the fabric.js canvas state
+Additional garment models can be added later through the garment model configuration.
 
-📌 `TshirtModel`: Handles 3D model rendering
+---
 
-📌 `DesignArea`: Manages 2D design interface
+## Technology Stack
 
-📌 `ToolsSidebar`: Contains all design tools
+### Frontend
 
-### Storage System
-```javascript
-// Example of the storage structure
-{
-  "tshirt-designer-front": "[{object}, {object}]",
-  "tshirt-designer-back": "[{object}, {object}]"
-}
-```
+- React
+- Vite
+- JavaScript / JSX
+- Redux
+- Tailwind CSS
+- Fabric.js
+- Three.js
+- React Three Fiber
+- Drei
+- Lucide React
 
-## 🧩 Challenges and How I Overcame Them
+### Backend
 
-### 1. Complex Canvas State Management
+- Java
+- Spring Boot
+- Spring Security
+- REST APIs
+- JPA / Hibernate
 
-#### Challenge
-Initially, storing the Fabric.js canvas state in Redux proved problematic due to:
-- Circular references in canvas objects
-- Non-serializable data structures
-- Performance implications with complex designs
+### Database
 
-#### Solution
-✅ Implemented a hybrid state management approach (Redux + Context API)
-```javascript
-// Separate state management for different concerns
-- Redux: UI states (colors, views, selections)
-- Context API: Complex canvas operations
-- LocalStorage: Design persistence
-```
+The backend can be configured with:
 
-**Benefits:**
-- Clean separation of concerns
-- Improved performance
-- Better state predictability
-- Maintainable codebase
+- H2 for local development
+- PostgreSQL / MySQL for production
 
-### 2. Design Persistence Across Views
+---
 
-#### Challenge
-Designs were disappearing during:
-- Front/back view switches
-- Component remounts
-- Page refreshes
+## Project Structure
 
-#### Solution
-✅ Developed a custom storage management system:
-
-```javascript
-// canvasStorageManager.js
-
- // Save canvas objects
-  saveCanvasObjects: (view, canvas) => {
-    if (!canvas) return;
-    try {
-      const storageKey =
-        view === "front" ? STORAGE_KEYS.FRONT_CANVAS : STORAGE_KEYS.BACK_CANVAS;
-
-      // Clear existing design for this view before saving
-      localStorage.removeItem(storageKey);
-      // Get and save new objects
-      const objects = canvas.getObjects().map((obj) => obj.toJSON());
-
-      localStorage.setItem(
-        view === "front" ? STORAGE_KEYS.FRONT_CANVAS : STORAGE_KEYS.BACK_CANVAS,
-        JSON.stringify(objects)
-      );
-    } catch (error) {
-      console.error("Error saving canvas objects:", error);
-    }
-  },
-```
-
-**Key Features:**
-- Automatic state persistence
-- Separate storage for front/back designs
-- Efficient serialization/deserialization
-- Automatic recovery on page load
-
-## 🎯 Future Improvements
-
-### Planned Features
-- Sleeve design customization
-- Additional t-shirt styles:
-  - V-neck
-  - Long sleeve
-  - Henley
-  - Polo shirts
-- Enhanced export options
+```text
+MOGREN
+│
+├── frontend
+│   ├── public
+│   │   ├── mockups
+│   │   └── 3Dmodels
+│   │
+│   └── src
+│       ├── components
+│       ├── config
+│       ├── constants
+│       ├── features
+│       ├── hooks
+│       ├── utils
+│       └── DesignerApp.jsx
+│
+└── backend
+    └── src
+        └── main
+            ├── java
+            └── resources
