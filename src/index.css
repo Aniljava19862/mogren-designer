@@ -1,0 +1,466 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =========================================================
+   MOGREN WEAR GLOBAL THEME
+========================================================= */
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 3.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 3.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 3.9%;
+
+    --primary: 0 0% 9%;
+    --primary-foreground: 0 0% 98%;
+
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 0 0% 9%;
+
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 45.1%;
+
+    --accent: 0 0% 96.1%;
+    --accent-foreground: 0 0% 9%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 0 0% 3.9%;
+
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+
+    /* Slightly more premium than the previous 0.5rem */
+    --radius: 0.75rem;
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /*
+     * MOGREN storefront variables.
+     * These do not interfere with the existing designer/shadcn styles.
+     */
+    --MOGREN-black: #0b0b0b;
+    --MOGREN-charcoal: #181818;
+    --MOGREN-page: #f8f8f6;
+    --MOGREN-soft: #f2f2ef;
+    --MOGREN-line: #e6e6e2;
+    --MOGREN-muted: #777777;
+  }
+
+  .dark {
+    --background: 0 0% 3.9%;
+    --foreground: 0 0% 98%;
+
+    --card: 0 0% 3.9%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 0 0% 3.9%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 0 0% 98%;
+    --primary-foreground: 0 0% 9%;
+
+    --secondary: 0 0% 14.9%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 63.9%;
+
+    --accent: 0 0% 14.9%;
+    --accent-foreground: 0 0% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 0 0% 14.9%;
+    --input: 0 0% 14.9%;
+    --ring: 0 0% 83.1%;
+
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+/* =========================================================
+   BASE RESET
+========================================================= */
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+
+    margin: 0;
+    min-width: 320px;
+    min-height: 100vh;
+
+    font-family: "DM Sans", Arial, sans-serif;
+
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+  }
+
+  /*
+   * Use Manrope for visual hierarchy.
+   */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: "Manrope", "DM Sans", sans-serif;
+    letter-spacing: -0.025em;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font-family: inherit;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  img {
+    display: block;
+    max-width: 100%;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  ::selection {
+    background: #111111;
+    color: #ffffff;
+  }
+}
+
+/* =========================================================
+   MOGREN TYPOGRAPHY
+========================================================= */
+
+@layer utilities {
+  .font-display {
+    font-family: "Manrope", "DM Sans", sans-serif;
+  }
+
+  .font-body {
+    font-family: "DM Sans", Arial, sans-serif;
+  }
+
+  .MOGREN-heading {
+    font-family: "Manrope", sans-serif;
+    font-weight: 800;
+    letter-spacing: -0.045em;
+    line-height: 0.98;
+  }
+
+  .MOGREN-eyebrow {
+    font-family: "DM Sans", sans-serif;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+  }
+
+  .MOGREN-page {
+    background: var(--MOGREN-page);
+  }
+}
+
+/* =========================================================
+   PREMIUM STORE ANIMATIONS
+========================================================= */
+
+@layer utilities {
+  .MOGREN-image {
+    transition:
+      transform 700ms cubic-bezier(0.2, 0.75, 0.25, 1),
+      filter 500ms ease;
+  }
+
+  .group:hover .MOGREN-image {
+    transform: scale(1.045);
+  }
+
+  .MOGREN-card-lift {
+    transition:
+      transform 250ms ease,
+      box-shadow 250ms ease;
+  }
+
+  .MOGREN-card-lift:hover {
+    transform: translateY(-4px);
+    box-shadow:
+      0 20px 45px rgba(0, 0, 0, 0.08),
+      0 6px 16px rgba(0, 0, 0, 0.04);
+  }
+
+  .MOGREN-link {
+    position: relative;
+  }
+
+  .MOGREN-link::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: -4px;
+
+    width: 0;
+    height: 1px;
+
+    background: currentColor;
+    transition: width 250ms ease;
+  }
+
+  .MOGREN-link:hover::after {
+    width: 100%;
+  }
+}
+
+/* =========================================================
+   SCROLLBAR
+========================================================= */
+
+@layer utilities {
+  .MOGREN-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .MOGREN-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .MOGREN-scrollbar::-webkit-scrollbar-thumb {
+    background: #d4d4d4;
+    border-radius: 999px;
+  }
+
+  .MOGREN-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #aaaaaa;
+  }
+
+  .hide-scrollbar {
+    scrollbar-width: none;
+  }
+
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* =========================================================
+   PRODUCT IMAGE BEHAVIOUR
+========================================================= */
+
+@layer components {
+  .MOGREN-product-image {
+    position: relative;
+    overflow: hidden;
+    background: #eeeeeb;
+  }
+
+  .MOGREN-product-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+
+    transition: transform 700ms cubic-bezier(0.2, 0.75, 0.25, 1);
+  }
+
+  .MOGREN-product-image:hover img {
+    transform: scale(1.045);
+  }
+
+  .MOGREN-product-card {
+    background: transparent;
+  }
+
+  .MOGREN-product-title {
+    font-family: "Manrope", sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .MOGREN-price {
+    font-family: "DM Sans", sans-serif;
+    font-weight: 700;
+  }
+}
+
+/* =========================================================
+   FORM CONTROLS
+========================================================= */
+
+@layer components {
+  .MOGREN-input {
+    width: 100%;
+    border: 1px solid #d8d8d5;
+    background: #ffffff;
+
+    padding: 0.85rem 1rem;
+
+    font-size: 0.875rem;
+
+    outline: none;
+
+    transition:
+      border-color 180ms ease,
+      box-shadow 180ms ease,
+      background 180ms ease;
+  }
+
+  .MOGREN-input:focus {
+    border-color: #111111;
+    box-shadow: 0 0 0 1px #111111;
+  }
+
+  .MOGREN-button-dark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+
+    background: #111111;
+    color: #ffffff;
+
+    padding: 0.9rem 1.5rem;
+
+    font-size: 0.8rem;
+    font-weight: 700;
+
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+
+    transition:
+      background 200ms ease,
+      transform 200ms ease;
+  }
+
+  .MOGREN-button-dark:hover {
+    background: #292929;
+    transform: translateY(-1px);
+  }
+}
+
+/* =========================================================
+   ACCESSIBILITY
+========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.mogren-print-border {
+  border: none;
+}
+
+.mogren-print-border::after {
+  content: "";
+
+  position: absolute;
+
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+
+  pointer-events: none;
+
+  background-image:
+    repeating-linear-gradient(
+      90deg,
+      #00346c 0 8px,
+      #faa31a 8px 16px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      #00346c 0 8px,
+      #faa31a 8px 16px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      #00346c 0 8px,
+      #faa31a 8px 16px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      #00346c 0 8px,
+      #faa31a 8px 16px
+    );
+
+  background-size:
+    100% 2px,
+    100% 2px,
+    2px 100%,
+    2px 100%;
+
+  background-position:
+    top left,
+    bottom left,
+    top left,
+    top right;
+
+  background-repeat:
+    no-repeat;
+
+  opacity: 0.65;
+}

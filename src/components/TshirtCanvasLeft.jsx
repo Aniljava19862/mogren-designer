@@ -1,0 +1,28 @@
+import { CANVAS_CONFIG } from "@/constants/designConstants";
+import { useTshirtCanvas } from "@/hooks/useTshirtCanvas";
+
+const TshirtCanvasLeft = ({
+  svgPath,
+  onDesignUpdate,
+}) => {
+  const { canvasRef } =
+    useTshirtCanvas({
+      svgPath,
+      view: "left",
+      clipToGarment: false,
+      onDesignUpdate,
+    });
+
+  return (
+    <div className="relative h-full w-full">
+      <canvas
+        ref={canvasRef}
+        width={CANVAS_CONFIG.width}
+        height={CANVAS_CONFIG.height}
+        className="absolute inset-0 h-full w-full"
+      />
+    </div>
+  );
+};
+
+export default TshirtCanvasLeft;
