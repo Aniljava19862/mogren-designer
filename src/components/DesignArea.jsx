@@ -48,22 +48,22 @@ const GARMENT_MOCKUPS = {
         image: "/mockups/round-neck-left.png",
 
         printArea: {
-          left: 35,
-          top: 30,
-          width: 28,
-          height: 28,
-        },
+    left: 41,
+    top: 30,
+    width: 16,
+    height: 15,
+  },
       },
 
       right: {
         image: "/mockups/round-neck-right.png",
 
-        printArea: {
-          left: 37,
-          top: 30,
-          width: 28,
-          height: 28,
-        },
+         printArea: {
+    left: 42.5,
+    top: 25.5,
+    width: 18,
+    height: 17,
+  },
       },
     },
   },

@@ -1,5 +1,6 @@
 import {
   Suspense,
+  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -26,7 +27,8 @@ import {
   Shirt,
 } from "lucide-react";
 
-import DesignArea from "./components/DesignArea";
+import DesignArea
+  from "./components/DesignArea";
 
 import {
   TshirtModel,
@@ -62,7 +64,30 @@ import {
 import canvasStorageManager
   from "./utils/canvasStorageManager";
 
-function App() {
+/*
+ * ============================================================
+ * DESIGNER APP
+ * ============================================================
+ *
+ * basePrice:
+ *
+ * For now defaults to ₹999.
+ *
+ * Later Product page should pass the actual base product price.
+ *
+ * Example:
+ *
+ * <DesignerApp
+ *    basePrice={899}
+ * />
+ *
+ * ============================================================
+ */
+
+function App({
+  basePrice = 999,
+}) {
+
   /*
    * ==========================================================
    * REDUX
@@ -108,6 +133,47 @@ function App() {
 
   /*
    * ==========================================================
+   * CUSTOMIZATION PRICING
+   * ==========================================================
+   */
+
+  const [
+    customizationPricing,
+    setCustomizationPricing,
+  ] = useState([]);
+
+  const [
+    pricingLoading,
+    setPricingLoading,
+  ] = useState(false);
+
+  const [
+    pricingError,
+    setPricingError,
+  ] = useState("");
+
+  /*
+   * ==========================================================
+   * DESIGN PRESENCE
+   * ==========================================================
+   *
+   * We only charge when the respective Fabric canvas
+   * actually contains at least one design object.
+   * ==========================================================
+   */
+
+  const [
+    designPresence,
+    setDesignPresence,
+  ] = useState({
+    front: false,
+    back: false,
+    left: false,
+    right: false,
+  });
+
+  /*
+   * ==========================================================
    * SELECTED GARMENT CONFIG
    * ==========================================================
    */
@@ -119,25 +185,140 @@ function App() {
 
   /*
    * ==========================================================
-   * 3D SUPPORT
+   * NORMALIZED GARMENT NAME
+   * ==========================================================
+   */
+
+  const garmentName =
+    useMemo(() => {
+      return String(
+        selectedTshirtConfig?.name ||
+          selectedType ||
+          ""
+      )
+        .trim()
+        .toUpperCase();
+    }, [
+      selectedTshirtConfig,
+      selectedType,
+    ]);
+
+  /*
+   * ==========================================================
+   * BACKEND GARMENT TYPE
+   * ==========================================================
    *
-   * Your Round Neck garment is currently named:
+   * IMPORTANT:
+   *
+   * Frontend currently calls Round Neck:
    *
    * "Crew Neck"
    *
-   * So for now only Crew Neck gets 3D.
+   * Backend pricing uses:
+   *
+   * ROUND_NECK
+   *
+   * This mapper keeps UI terminology separate from the
+   * backend's stable business identifier.
+   * ==========================================================
+   */
+
+  const backendGarmentType =
+    useMemo(() => {
+
+      /*
+       * CREW / ROUND NECK
+       */
+      if (
+        garmentName.includes(
+          "CREW NECK"
+        ) ||
+        garmentName.includes(
+          "ROUND NECK"
+        )
+      ) {
+        return "ROUND_NECK";
+      }
+
+      /*
+       * WOMEN POLO
+       */
+      if (
+        garmentName.includes(
+          "WOMEN"
+        ) &&
+        garmentName.includes(
+          "POLO"
+        )
+      ) {
+        return "WOMEN_POLO";
+      }
+
+      /*
+       * WOMEN T-SHIRT
+       */
+      if (
+        garmentName.includes(
+          "WOMEN"
+        ) &&
+        (
+          garmentName.includes(
+            "T-SHIRT"
+          ) ||
+          garmentName.includes(
+            "TSHIRT"
+          )
+        )
+      ) {
+        return "WOMEN_TSHIRT";
+      }
+
+      /*
+       * HOODIE
+       */
+      if (
+        garmentName.includes(
+          "HOOD"
+        )
+      ) {
+        return "HOODIE";
+      }
+
+      /*
+       * If Redux already contains a backend-compatible ID,
+       * normalize and use it.
+       */
+      return String(
+        selectedType ||
+          ""
+      )
+        .trim()
+        .toUpperCase()
+        .replaceAll(
+          "-",
+          "_"
+        )
+        .replaceAll(
+          " ",
+          "_"
+        );
+
+    }, [
+      garmentName,
+      selectedType,
+    ]);
+
+  /*
+   * ==========================================================
+   * 3D SUPPORT
+   * ==========================================================
+   *
+   * Your current working 3D model is Crew Neck / Round Neck.
    * ==========================================================
    */
 
   const supports3D =
     useMemo(() => {
-      const garmentName =
-        String(
-          selectedTshirtConfig?.name ||
-            ""
-        )
-          .trim()
-          .toUpperCase();
 
       return (
         garmentName ===
@@ -151,8 +332,9 @@ function App() {
           "ROUND NECK"
         )
       );
+
     }, [
-      selectedTshirtConfig,
+      garmentName,
     ]);
 
   /*
@@ -191,12 +373,473 @@ function App() {
 
   /*
    * ==========================================================
+   * FETCH CUSTOMIZATION PRICING
+   * ==========================================================
+   *
+   * Calls:
+   *
+   * GET
+   * /api/customization-pricing/ROUND_NECK
+   *
+   * Backend is DB-driven.
+   * ==========================================================
+   */
+
+  useEffect(() => {
+
+    if (
+      !backendGarmentType
+    ) {
+      return;
+    }
+
+    let cancelled =
+      false;
+
+    const loadPricing =
+      async () => {
+
+        try {
+
+          setPricingLoading(
+            true
+          );
+
+          setPricingError(
+            ""
+          );
+
+          const response =
+            await fetch(
+              `/api/customization-pricing/${encodeURIComponent(
+                backendGarmentType
+              )}`,
+              {
+                method:
+                  "GET",
+
+                headers: {
+                  Accept:
+                    "application/json",
+                },
+              }
+            );
+
+          if (
+            !response.ok
+          ) {
+            throw new Error(
+              `Unable to load customization pricing. HTTP ${response.status}`
+            );
+          }
+
+          const data =
+            await response.json();
+
+          if (
+            !cancelled
+          ) {
+            setCustomizationPricing(
+              Array.isArray(
+                data
+              )
+                ? data
+                : []
+            );
+          }
+
+        } catch (
+          error
+        ) {
+
+          console.error(
+            "Unable to load customization pricing",
+            error
+          );
+
+          if (
+            !cancelled
+          ) {
+            setCustomizationPricing(
+              []
+            );
+
+            setPricingError(
+              "Customization pricing unavailable"
+            );
+          }
+
+        } finally {
+
+          if (
+            !cancelled
+          ) {
+            setPricingLoading(
+              false
+            );
+          }
+        }
+      };
+
+    loadPricing();
+
+    return () => {
+      cancelled =
+        true;
+    };
+
+  }, [
+    backendGarmentType,
+  ]);
+
+  /*
+   * ==========================================================
+   * PRICING MAP
+   * ==========================================================
+   *
+   * Backend:
+   *
+   * [
+   *   { printArea: "FRONT", price: 100 },
+   *   { printArea: "BACK", price: 100 },
+   *   ...
+   * ]
+   *
+   * becomes:
+   *
+   * {
+   *   FRONT: 100,
+   *   BACK: 100,
+   *   LEFT_SLEEVE: 50,
+   *   RIGHT_SLEEVE: 50
+   * }
+   * ==========================================================
+   */
+
+  const pricingMap =
+    useMemo(() => {
+
+      const map = {};
+
+      customizationPricing
+        .forEach(
+          (item) => {
+
+            const key =
+              String(
+                item?.printArea ||
+                  ""
+              )
+                .trim()
+                .toUpperCase();
+
+            if (!key) {
+              return;
+            }
+
+            map[key] =
+              Number(
+                item?.price ||
+                  0
+              );
+          }
+        );
+
+      return map;
+
+    }, [
+      customizationPricing,
+    ]);
+
+  /*
+   * ==========================================================
+   * CHECK IF CANVAS HAS USER DESIGN
+   * ==========================================================
+   */
+
+  const canvasHasDesign =
+    (canvas) => {
+
+      if (!canvas) {
+        return false;
+      }
+
+      try {
+
+        const objects =
+          canvas.getObjects?.() ||
+          [];
+
+        return (
+          objects.length >
+          0
+        );
+
+      } catch (
+        error
+      ) {
+
+        console.error(
+          "Unable to inspect Fabric canvas",
+          error
+        );
+
+        return false;
+      }
+    };
+
+  /*
+   * ==========================================================
+   * REFRESH DESIGN PRESENCE
+   * ==========================================================
+   */
+
+  const refreshDesignPresence =
+    () => {
+
+      setDesignPresence({
+        front:
+          canvasHasDesign(
+            frontCanvas
+          ),
+
+        back:
+          canvasHasDesign(
+            backCanvas
+          ),
+
+        left:
+          canvasHasDesign(
+            leftCanvas
+          ),
+
+        right:
+          canvasHasDesign(
+            rightCanvas
+          ),
+      });
+    };
+
+  /*
+   * ==========================================================
+   * LISTEN TO FABRIC CHANGES
+   * ==========================================================
+   *
+   * As soon as user:
+   *
+   * adds
+   * removes
+   * modifies
+   *
+   * an object, pricing updates.
+   * ==========================================================
+   */
+
+  useEffect(() => {
+
+    const canvases = [
+      frontCanvas,
+      backCanvas,
+      leftCanvas,
+      rightCanvas,
+    ].filter(Boolean);
+
+    if (
+      canvases.length ===
+      0
+    ) {
+      return;
+    }
+
+    const update =
+      () => {
+        refreshDesignPresence();
+      };
+
+    canvases.forEach(
+      (canvas) => {
+
+        canvas.on(
+          "object:added",
+          update
+        );
+
+        canvas.on(
+          "object:removed",
+          update
+        );
+
+        canvas.on(
+          "object:modified",
+          update
+        );
+      }
+    );
+
+    /*
+     * Initial check.
+     */
+    refreshDesignPresence();
+
+    return () => {
+
+      canvases.forEach(
+        (canvas) => {
+
+          canvas.off(
+            "object:added",
+            update
+          );
+
+          canvas.off(
+            "object:removed",
+            update
+          );
+
+          canvas.off(
+            "object:modified",
+            update
+          );
+        }
+      );
+    };
+
+  }, [
+    frontCanvas,
+    backCanvas,
+    leftCanvas,
+    rightCanvas,
+  ]);
+
+  /*
+   * ==========================================================
+   * DESIGNED AREAS
+   * ==========================================================
+   *
+   * This is the value that eventually goes to backend
+   * when adding the customized product to cart.
+   * ==========================================================
+   */
+
+  const designedAreas =
+    useMemo(() => {
+
+      const areas = [];
+
+      if (
+        designPresence.front
+      ) {
+        areas.push(
+          "FRONT"
+        );
+      }
+
+      if (
+        designPresence.back
+      ) {
+        areas.push(
+          "BACK"
+        );
+      }
+
+      if (
+        designPresence.left
+      ) {
+        areas.push(
+          "LEFT_SLEEVE"
+        );
+      }
+
+      if (
+        designPresence.right
+      ) {
+        areas.push(
+          "RIGHT_SLEEVE"
+        );
+      }
+
+      return areas;
+
+    }, [
+      designPresence,
+    ]);
+
+  /*
+   * ==========================================================
+   * CUSTOMIZATION TOTAL
+   * ==========================================================
+   */
+
+  const customizationTotal =
+    useMemo(() => {
+
+      return designedAreas
+        .reduce(
+          (
+            total,
+            area
+          ) => {
+
+            return (
+              total +
+              Number(
+                pricingMap[
+                  area
+                ] ||
+                  0
+              )
+            );
+
+          },
+          0
+        );
+
+    }, [
+      designedAreas,
+      pricingMap,
+    ]);
+
+  /*
+   * ==========================================================
+   * FINAL DISPLAY PRICE
+   * ==========================================================
+   *
+   * IMPORTANT:
+   *
+   * This calculation is only for UI display.
+   *
+   * Backend must calculate again before saving cart/order.
+   * ==========================================================
+   */
+
+  const finalPrice =
+    useMemo(() => {
+
+      return (
+        Number(
+          basePrice ||
+            0
+        ) +
+        Number(
+          customizationTotal ||
+            0
+        )
+      );
+
+    }, [
+      basePrice,
+      customizationTotal,
+    ]);
+
+  /*
+   * ==========================================================
    * MANUAL SYNC
    * ==========================================================
    */
 
   const manualSync =
     (view) => {
+
       manualTriggerSync(
         view ||
           selectedView
@@ -211,10 +854,12 @@ function App() {
 
   const handleViewChange =
     (view) => {
+
       if (
         view !==
         selectedView
       ) {
+
         dispatch(
           setSelectedView(
             view
@@ -231,6 +876,7 @@ function App() {
 
   const handleTogglePreview =
     async () => {
+
       /*
        * 3D -> 2D
        */
@@ -238,6 +884,7 @@ function App() {
         previewMode ===
         "3d"
       ) {
+
         setPreviewMode(
           "2d"
         );
@@ -246,22 +893,25 @@ function App() {
       }
 
       /*
-       * Prevent unsupported garments
-       * from opening 3D.
+       * Unsupported garment.
        */
-      if (!supports3D) {
+      if (
+        !supports3D
+      ) {
         return;
       }
 
       /*
-       * Make sure the latest artwork
-       * is pushed to the 3D textures.
+       * Sync all four canvases before 3D.
        */
       try {
+
         await manualTriggerSync();
+
       } catch (
         error
       ) {
+
         console.error(
           "Unable to sync design before opening 3D",
           error
@@ -281,11 +931,16 @@ function App() {
 
   const handleSaveDesign =
     () => {
+
       try {
+
         /*
          * FRONT
          */
-        if (frontCanvas) {
+        if (
+          frontCanvas
+        ) {
+
           canvasStorageManager
             .saveCanvasObjects(
               "front",
@@ -296,7 +951,10 @@ function App() {
         /*
          * BACK
          */
-        if (backCanvas) {
+        if (
+          backCanvas
+        ) {
+
           canvasStorageManager
             .saveCanvasObjects(
               "back",
@@ -307,7 +965,10 @@ function App() {
         /*
          * LEFT
          */
-        if (leftCanvas) {
+        if (
+          leftCanvas
+        ) {
+
           canvasStorageManager
             .saveCanvasObjects(
               "left",
@@ -318,7 +979,10 @@ function App() {
         /*
          * RIGHT
          */
-        if (rightCanvas) {
+        if (
+          rightCanvas
+        ) {
+
           canvasStorageManager
             .saveCanvasObjects(
               "right",
@@ -334,7 +998,19 @@ function App() {
 
           JSON.stringify({
             selectedType,
+
+            backendGarmentType,
+
             tshirtColor,
+
+            designedAreas,
+
+            basePrice,
+
+            customizationTotal,
+
+            displayFinalPrice:
+              finalPrice,
 
             savedAt:
               new Date()
@@ -342,25 +1018,55 @@ function App() {
           })
         );
 
-        /*
-         * Saved visual feedback.
-         */
-        setSaved(true);
+        setSaved(
+          true
+        );
 
         window.setTimeout(
           () => {
-            setSaved(false);
+
+            setSaved(
+              false
+            );
+
           },
           1500
         );
+
       } catch (
         error
       ) {
+
         console.error(
           "Unable to save design",
           error
         );
       }
+    };
+
+  /*
+   * ==========================================================
+   * CURRENCY FORMAT
+   * ==========================================================
+   */
+
+  const formatPrice =
+    (value) => {
+
+      return new Intl
+        .NumberFormat(
+          "en-IN",
+          {
+            maximumFractionDigits:
+              2,
+          }
+        )
+        .format(
+          Number(
+            value ||
+              0
+          )
+        );
     };
 
   /*
@@ -376,7 +1082,12 @@ function App() {
         bg-[#f6f6f6]
       "
     >
-      <div className="flex">
+
+      <div
+        className="
+          flex
+        "
+      >
 
         {/* ================================================
             LEFT TOOLS
@@ -398,6 +1109,7 @@ function App() {
             flex-1
           "
         >
+
           <main
             className="
               relative
@@ -406,7 +1118,7 @@ function App() {
           >
 
             {/* ============================================
-                TOP RIGHT ACTION BUTTONS
+                TOP RIGHT ACTIONS
             ============================================ */}
 
             <div
@@ -472,6 +1184,7 @@ function App() {
                   }
                 `}
               >
+
                 {saved ? (
                   <>
                     <Check
@@ -493,12 +1206,11 @@ function App() {
                     </span>
                   </>
                 )}
+
               </button>
 
               {/* ==========================================
                   2D / 3D TOGGLE
-
-                  CREW NECK ONLY
               ========================================== */}
 
               {supports3D && (
@@ -539,6 +1251,7 @@ function App() {
                     hover:bg-zinc-800
                   "
                 >
+
                   {previewMode ===
                   "2d" ? (
                     <>
@@ -561,6 +1274,7 @@ function App() {
                       </span>
                     </>
                   )}
+
                 </button>
               )}
 
@@ -569,11 +1283,7 @@ function App() {
             {/* ============================================
                 2D DESIGN AREA
 
-                IMPORTANT:
-                DesignArea remains mounted.
-
-                We only hide it so all Fabric canvases
-                remain alive.
+                KEEP MOUNTED.
             ============================================ */}
 
             <div
@@ -589,13 +1299,13 @@ function App() {
                 }
               `}
             >
+
               <DesignArea />
+
             </div>
 
             {/* ============================================
                 3D VIEW
-
-                CREW NECK ONLY
             ============================================ */}
 
             {supports3D && (
@@ -689,10 +1399,6 @@ function App() {
 
                   </Canvas>
 
-                  {/* ====================================
-                      3D LOADER
-                  ==================================== */}
-
                   <Loader
                     containerStyles={{
                       position:
@@ -742,13 +1448,301 @@ function App() {
         </div>
       </div>
 
-      {/* ================================================
-          CART BUTTON
+      {/* =================================================
+          PRICE BREAKDOWN
+      ================================================= */}
 
-          Save Design is no longer rendered here.
-      ================================================ */}
+      <div
+        className="
+          fixed
+          bottom-[92px]
+          right-6
+          z-[250]
 
-      <CustomDesignCartButton />
+          w-[300px]
+
+          rounded-2xl
+
+          border
+          border-zinc-200
+
+          bg-white
+
+          p-4
+
+          shadow-xl
+        "
+      >
+
+        <div
+          className="
+            mb-3
+
+            flex
+            items-center
+            justify-between
+          "
+        >
+
+          <span
+            className="
+              text-sm
+              font-bold
+              text-zinc-900
+            "
+          >
+            Price Details
+          </span>
+
+          {pricingLoading && (
+            <span
+              className="
+                text-xs
+                text-zinc-400
+              "
+            >
+              Loading...
+            </span>
+          )}
+
+        </div>
+
+        {pricingError ? (
+
+          <div
+            className="
+              text-xs
+              text-red-600
+            "
+          >
+            {pricingError}
+          </div>
+
+        ) : (
+
+          <div
+            className="
+              space-y-2
+              text-sm
+            "
+          >
+
+            {/* BASE PRODUCT */}
+
+            <div
+              className="
+                flex
+                justify-between
+              "
+            >
+              <span
+                className="
+                  text-zinc-600
+                "
+              >
+                T-Shirt
+              </span>
+
+              <span
+                className="
+                  font-medium
+                "
+              >
+                ₹{formatPrice(
+                  basePrice
+                )}
+              </span>
+            </div>
+
+            {/* FRONT */}
+
+            {designPresence.front && (
+              <div
+                className="
+                  flex
+                  justify-between
+                "
+              >
+                <span
+                  className="
+                    text-zinc-600
+                  "
+                >
+                  Front Design
+                </span>
+
+                <span>
+                  +₹{formatPrice(
+                    pricingMap
+                      .FRONT ||
+                      0
+                  )}
+                </span>
+              </div>
+            )}
+
+            {/* BACK */}
+
+            {designPresence.back && (
+              <div
+                className="
+                  flex
+                  justify-between
+                "
+              >
+                <span
+                  className="
+                    text-zinc-600
+                  "
+                >
+                  Back Design
+                </span>
+
+                <span>
+                  +₹{formatPrice(
+                    pricingMap
+                      .BACK ||
+                      0
+                  )}
+                </span>
+              </div>
+            )}
+
+            {/* LEFT SLEEVE */}
+
+            {designPresence.left && (
+              <div
+                className="
+                  flex
+                  justify-between
+                "
+              >
+                <span
+                  className="
+                    text-zinc-600
+                  "
+                >
+                  Left Sleeve
+                </span>
+
+                <span>
+                  +₹{formatPrice(
+                    pricingMap
+                      .LEFT_SLEEVE ||
+                      0
+                  )}
+                </span>
+              </div>
+            )}
+
+            {/* RIGHT SLEEVE */}
+
+            {designPresence.right && (
+              <div
+                className="
+                  flex
+                  justify-between
+                "
+              >
+                <span
+                  className="
+                    text-zinc-600
+                  "
+                >
+                  Right Sleeve
+                </span>
+
+                <span>
+                  +₹{formatPrice(
+                    pricingMap
+                      .RIGHT_SLEEVE ||
+                      0
+                  )}
+                </span>
+              </div>
+            )}
+
+            {/* CUSTOMIZATION TOTAL */}
+
+            {customizationTotal >
+              0 && (
+              <div
+                className="
+                  flex
+                  justify-between
+
+                  border-t
+                  border-zinc-100
+
+                  pt-2
+                "
+              >
+                <span
+                  className="
+                    text-zinc-600
+                  "
+                >
+                  Customization
+                </span>
+
+                <span
+                  className="
+                    font-medium
+                  "
+                >
+                  +₹{formatPrice(
+                    customizationTotal
+                  )}
+                </span>
+              </div>
+            )}
+
+            {/* FINAL DISPLAY PRICE */}
+
+            <div
+              className="
+                mt-3
+
+                flex
+                justify-between
+
+                border-t
+                border-zinc-200
+
+                pt-3
+
+                text-base
+                font-bold
+              "
+            >
+              <span>
+                Total
+              </span>
+
+              <span>
+                ₹{formatPrice(
+                  finalPrice
+                )}
+              </span>
+            </div>
+
+          </div>
+        )}
+
+      </div>
+
+      {/* =================================================
+          EXISTING CART BUTTON
+      ================================================= */}
+
+      <CustomDesignCartButton
+  basePrice={Number(basePrice)}
+  customizationTotal={Number(customizationTotal)}
+  finalPrice={Number(finalPrice)}
+  garmentType={backendGarmentType}
+  designedAreas={designedAreas}
+  designPresence={designPresence}
+/>
 
       <Toaster />
 
