@@ -37,6 +37,7 @@ import { useRef, useState } from "react";
 import SaveDesign from "./SaveDesign";
 import { useCanvas } from "@/hooks/useCanvas";
 import canvasStorageManager from "@/utils/canvasStorageManager";
+import { catalogApi } from "@/services/api";
 import {
   Box,
   Type,
@@ -48,7 +49,59 @@ import {
   RotateCcw,
   RotateCw,
   Trash2,
+  Palette,
 } from "lucide-react";
+
+const DESIGNER_PRODUCT_SLUG = "custom-premium-tee";
+
+const COLOR_NAME_TO_HEX = {
+  black: "#000000",
+  white: "#FFFFFF",
+  navy: "#000080",
+  red: "#FF0000",
+  grey: "#808080",
+  gray: "#808080",
+  blue: "#0000FF",
+  maroon: "#800000",
+  olive: "#808000",
+  beige: "#F5F5DC",
+  cream: "#FFFDD0",
+};
+
+const resolveColorValue = (value) => {
+  if (!value) return "#FFFFFF";
+
+  const trimmed = String(value).trim();
+
+  if (/^#[0-9a-f]{6}$/i.test(trimmed)) {
+    return trimmed.toUpperCase();
+  }
+
+  if (/^#[0-9a-f]{3}$/i.test(trimmed)) {
+    const hex = trimmed.substring(1);
+    return (`#${hex[0]}${hex[0]}${hex[1]}${hex[1]}${hex[2]}${hex[2]}`).toUpperCase();
+  }
+
+  return COLOR_NAME_TO_HEX[trimmed.toLowerCase()] || trimmed;
+};
+
+const normalizeBackendColors = (colors = []) => {
+  const seen = new Set();
+
+  return colors
+    .map((color) => ({
+      label: String(color),
+      value: resolveColorValue(color),
+    }))
+    .filter((color) => {
+      const key = color.value.toLowerCase();
+
+      if (seen.has(key)) return false;
+
+      seen.add(key);
+      return true;
+    });
+};
 
 const ToolBar = ({ manualSync }) => {
   const dispatch = useDispatch();
@@ -56,6 +109,7 @@ const ToolBar = ({ manualSync }) => {
   const selectedType = useSelector((state) => state.tshirt.selectedType);
   const { activeCanvas, selectedObject, frontCanvas, backCanvas, leftCanvas, rightCanvas } = useCanvas();
   const selectedView = useSelector((state) => state.tshirt.selectedView);
+  const tshirtColor = useSelector((state) => state.tshirt.tshirtColor);
 
   const items = [
     { id: "products", label: "Products", icon: <Box /> },
@@ -71,6 +125,9 @@ const ToolBar = ({ manualSync }) => {
   const [lineColor, setLineColor] = useState("#000000");
   const [lineWidth, setLineWidth] = useState(3);
   const [selectedArtCategory, setSelectedArtCategory] = useState(null);
+  const [backendColors, setBackendColors] = useState([]);
+  const [colorsLoading, setColorsLoading] = useState(true);
+  const [colorsError, setColorsError] = useState("");
   const historyRef = useRef({ front: [], back: [], left: [], right: [] });
   const redoRef = useRef({ front: [], back: [], left: [], right: [] });
   const isApplyingRef = useRef(false);
@@ -82,6 +139,51 @@ const ToolBar = ({ manualSync }) => {
   const handleColorChange = (color) => {
     dispatch(setTshirtColor(color));
   };
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    const loadColors = async () => {
+      try {
+        setColorsLoading(true);
+        setColorsError("");
+
+        const product = await catalogApi.getProductBySlug(DESIGNER_PRODUCT_SLUG);
+        const colors = normalizeBackendColors(product?.colors || []);
+
+        if (cancelled) return;
+
+        setBackendColors(colors);
+
+        if (colors.length > 0) {
+          const current = resolveColorValue(tshirtColor).toLowerCase();
+          const currentExists = colors.some(
+            (color) => color.value.toLowerCase() === current
+          );
+
+          if (!currentExists) {
+            dispatch(setTshirtColor(colors[0].value));
+          }
+        }
+      } catch (error) {
+        if (cancelled) return;
+
+        console.error("Unable to load garment colors", error);
+        setBackendColors([]);
+        setColorsError(error?.message || "Unable to load colors");
+      } finally {
+        if (!cancelled) {
+          setColorsLoading(false);
+        }
+      }
+    };
+
+    loadColors();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dispatch]);
 
   const triggerFileInput = () => {
     if (fileInputRef.current) {
@@ -472,44 +574,87 @@ const ToolBar = ({ manualSync }) => {
 
       {/* Left vertical sidebar */}
       <aside className="w-24 bg-white border-r flex flex-col items-center py-6 gap-4">
-        {/* Shirt popover trigger */}
+        {/* Garment color selector - values loaded from backend */}
         <Popover>
           <PopoverTrigger asChild>
-            <button className="w-14 h-14 rounded-md flex items-center justify-center transition shadow-sm text-gray-600 hover:bg-gray-100">
-              {/* inline SVG shirt icon with colorful badge */}
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <defs>
-                  <radialGradient id="g2" cx="40%" cy="35%" r="60%">
-                    <stop offset="0%" stopColor="#FFD36B" />
-                    <stop offset="55%" stopColor="#FF6B6B" />
-                    <stop offset="100%" stopColor="#7C4DFF" />
-                  </radialGradient>
-                </defs>
-                <path d="M3 8.5 7 6l1.2 3.2A2 2 0 0 0 10 11h4a2 2 0 0 0 1.8-1.8L17 6l4 2.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8.5z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" fill="none" />
-                <circle cx="19" cy="7" r="2" fill="url(#g2)" stroke="#fff" strokeWidth="0.6" />
-              </svg>
+            <button
+              className="relative w-14 h-14 rounded-md flex items-center justify-center transition shadow-sm text-gray-600 hover:bg-gray-100"
+              aria-label="Choose garment color"
+              title="Garment Color"
+            >
+              <Palette size={20} />
+
+              <span
+                className="absolute right-2 bottom-2 w-4 h-4 rounded-full border-2 border-white shadow"
+                style={{ backgroundColor: resolveColorValue(tshirtColor) }}
+              />
             </button>
           </PopoverTrigger>
-          <PopoverContent side="right" align="center" className="w-64 p-4 rounded-md shadow-xl">
-            <div className="flex items-start justify-between">
-              <div>
-                <h4 className="text-sm font-semibold">Image</h4>
-                <p className="text-xs text-muted-foreground mt-1">Quick actions for Image</p>
-              </div>
+
+          <PopoverContent
+            side="right"
+            align="center"
+            className="w-72 p-4 rounded-md shadow-xl"
+          >
+            <div>
+              <h4 className="text-sm font-semibold">Garment Color</h4>
+              <p className="text-xs text-muted-foreground mt-1">
+                Colors are loaded from the backend product configuration.
+              </p>
             </div>
-            <div className="mt-4 flex flex-col gap-2">
-              <button
-                onClick={triggerFileInput}
-                className="w-full px-3 py-2 bg-gray-800 text-white rounded"
-              >
-                Upload Image
-              </button>
-              <button
-                onClick={() => { setActive('products'); /* example action */ }}
-                className="w-full px-3 py-2 border rounded"
-              >
-                Use Product Image
-              </button>
+
+            {colorsLoading && (
+              <div className="mt-4 text-sm text-gray-500">
+                Loading colors...
+              </div>
+            )}
+
+            {!colorsLoading && colorsError && (
+              <div className="mt-4 text-sm text-red-600">
+                {colorsError}
+              </div>
+            )}
+
+            {!colorsLoading && !colorsError && backendColors.length === 0 && (
+              <div className="mt-4 text-sm text-gray-500">
+                No colors configured for this product.
+              </div>
+            )}
+
+            {!colorsLoading && backendColors.length > 0 && (
+              <div className="mt-4 grid grid-cols-4 gap-3">
+                {backendColors.map((color) => {
+                  const selected =
+                    resolveColorValue(tshirtColor).toLowerCase() ===
+                    color.value.toLowerCase();
+
+                  return (
+                    <button
+                      type="button"
+                      key={`${color.label}-${color.value}`}
+                      onClick={() => handleColorChange(color.value)}
+                      className={`flex flex-col items-center gap-1.5 rounded-lg p-2 transition hover:bg-gray-100 ${
+                        selected ? "ring-2 ring-black bg-gray-50" : ""
+                      }`}
+                      title={color.label}
+                      aria-label={`Choose ${color.label}`}
+                    >
+                      <span
+                        className="w-8 h-8 rounded-full border shadow-sm"
+                        style={{ backgroundColor: color.value }}
+                      />
+
+                      <span className="text-[10px] text-gray-600 max-w-[54px] truncate">
+                        {color.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="mt-4 border-t pt-3 text-xs text-gray-500">
+              Selected: {resolveColorValue(tshirtColor)}
             </div>
           </PopoverContent>
         </Popover>
