@@ -196,6 +196,14 @@ export const catalogApi = {
       api(
         `/products/${slug}`
       ),
+
+  /*
+   * Products enabled for the MOGREN designer.
+   */
+  getDesignerProducts: () =>
+    api(
+      "/products/designer"
+    ),
 };
 
 /*

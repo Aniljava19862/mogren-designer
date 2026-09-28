@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import * as fabric from "fabric";
 import { Button } from "@/components/ui/button";
@@ -33,7 +33,6 @@ import {
 } from "../constants/designConstants";
 
 import { setSelectedType, setTshirtColor } from "../features/tshirtSlice";
-import { useRef, useState } from "react";
 import SaveDesign from "./SaveDesign";
 import { useCanvas } from "@/hooks/useCanvas";
 import canvasStorageManager from "@/utils/canvasStorageManager";
@@ -49,67 +48,147 @@ import {
   RotateCcw,
   RotateCw,
   Trash2,
-  Palette,
 } from "lucide-react";
 
-const DESIGNER_PRODUCT_SLUG = "custom-premium-tee";
+
+const GARMENT_PRODUCT_MAP = {
+  "crew-neck": "custom-premium-tee",
+  CREW_NECK: "custom-premium-tee",
+  ROUND_NECK: "custom-premium-tee",
+  WOMEN_TSHIRT: "custom-premium-tee",
+  WOMEN_POLO: "premium-polo",
+  HOODIE: "classic-hoodie",
+};
 
 const COLOR_NAME_TO_HEX = {
-  black: "#000000",
-  white: "#FFFFFF",
-  navy: "#000080",
-  red: "#FF0000",
-  grey: "#808080",
-  gray: "#808080",
-  blue: "#0000FF",
-  maroon: "#800000",
-  olive: "#808000",
-  beige: "#F5F5DC",
-  cream: "#FFFDD0",
+  black: "#000000", white: "#FFFFFF", navy: "#1F2A44", red: "#DC2626",
+  grey: "#6B7280", gray: "#6B7280", blue: "#2563EB", maroon: "#800000",
+  cream: "#FFFDD0", olive: "#808000", beige: "#F5F5DC", pink: "#EC4899",
+  green: "#16A34A", yellow: "#FACC15", orange: "#F97316", purple: "#9333EA",
 };
 
-const resolveColorValue = (value) => {
-  if (!value) return "#FFFFFF";
+const normalizeGarmentType = (value) =>
+  String(value || "").trim().replaceAll(" ", "_").replaceAll("-", "_").toUpperCase();
 
-  const trimmed = String(value).trim();
-
-  if (/^#[0-9a-f]{6}$/i.test(trimmed)) {
-    return trimmed.toUpperCase();
-  }
-
-  if (/^#[0-9a-f]{3}$/i.test(trimmed)) {
-    const hex = trimmed.substring(1);
-    return (`#${hex[0]}${hex[0]}${hex[1]}${hex[1]}${hex[2]}${hex[2]}`).toUpperCase();
-  }
-
-  return COLOR_NAME_TO_HEX[trimmed.toLowerCase()] || trimmed;
+const resolveProductSlug = (selectedType) => {
+  if (GARMENT_PRODUCT_MAP[selectedType]) return GARMENT_PRODUCT_MAP[selectedType];
+  const normalized = normalizeGarmentType(selectedType);
+  if (GARMENT_PRODUCT_MAP[normalized]) return GARMENT_PRODUCT_MAP[normalized];
+  if (normalized.includes("WOMEN") && normalized.includes("POLO")) return "premium-polo";
+  if (normalized.includes("WOMEN")) return "custom-premium-tee";
+  if (normalized.includes("HOOD")) return "classic-hoodie";
+  if (normalized.includes("CREW") || normalized.includes("ROUND")) return "custom-premium-tee";
+  return "custom-premium-tee";
 };
 
-const normalizeBackendColors = (colors = []) => {
-  const seen = new Set();
+const normalizeColor = (value) => {
+  if (!value) return null;
+  const text = String(value).trim();
+  if (/^#[0-9a-f]{6}$/i.test(text)) return text.toUpperCase();
+  if (/^#[0-9a-f]{3}$/i.test(text)) {
+    const r = text[1], g = text[2], b = text[3];
+    return `#${r}${r}${g}${g}${b}${b}`.toUpperCase();
+  }
+  return COLOR_NAME_TO_HEX[text.toLowerCase()] || text;
+};
 
-  return colors
-    .map((color) => ({
-      label: String(color),
-      value: resolveColorValue(color),
-    }))
-    .filter((color) => {
-      const key = color.value.toLowerCase();
+const buildColorOptions = (
+  product
+) => {
+  const variants =
+    Array.isArray(
+      product?.colorVariants
+    )
+    &&
+    product.colorVariants.length > 0
+      ? product.colorVariants
+      : (
+          Array.isArray(
+            product?.colors
+          )
+            ? product.colors.map(
+                (color) => ({
+                  name: color,
+                  hex: normalizeColor(
+                    color
+                  ),
+                  imageUrl:
+                    product?.imageUrl ||
+                    "",
+                })
+              )
+            : []
+        );
 
-      if (seen.has(key)) return false;
+  const seen =
+    new Set();
 
-      seen.add(key);
-      return true;
-    });
+  return variants
+    .map(
+      (variant) => {
+        const backendValue =
+          String(
+            variant?.name ??
+              ""
+          )
+            .trim();
+
+        if (!backendValue) {
+          return null;
+        }
+
+        const swatch =
+          normalizeColor(
+            variant?.hex ||
+              backendValue
+          );
+
+        return {
+          label:
+            backendValue,
+
+          backendValue,
+
+          swatch,
+
+          imageUrl:
+            variant?.imageUrl ||
+            product?.imageUrl ||
+            "",
+        };
+      }
+    )
+    .filter(Boolean)
+    .filter(
+      (color) => {
+        const key =
+          String(
+            color.swatch ||
+              color.backendValue
+          )
+            .toLowerCase();
+
+        if (
+          seen.has(key)
+        ) {
+          return false;
+        }
+
+        seen.add(key);
+
+        return true;
+      }
+    );
 };
 
 const ToolBar = ({ manualSync }) => {
   const dispatch = useDispatch();
   const fileInputRef = useRef(null); // use for handle image input
   const selectedType = useSelector((state) => state.tshirt.selectedType);
+  const tshirtColor = useSelector((state) => state.tshirt.tshirtColor);
+  const selectedProduct = useSelector((state) => state.tshirt.selectedProduct);
   const { activeCanvas, selectedObject, frontCanvas, backCanvas, leftCanvas, rightCanvas } = useCanvas();
   const selectedView = useSelector((state) => state.tshirt.selectedView);
-  const tshirtColor = useSelector((state) => state.tshirt.tshirtColor);
 
   const items = [
     { id: "products", label: "Products", icon: <Box /> },
@@ -125,9 +204,10 @@ const ToolBar = ({ manualSync }) => {
   const [lineColor, setLineColor] = useState("#000000");
   const [lineWidth, setLineWidth] = useState(3);
   const [selectedArtCategory, setSelectedArtCategory] = useState(null);
-  const [backendColors, setBackendColors] = useState([]);
-  const [colorsLoading, setColorsLoading] = useState(true);
-  const [colorsError, setColorsError] = useState("");
+  const [availableColors, setAvailableColors] = useState([]);
+  const [colorLoading, setColorLoading] = useState(false);
+  const [colorError, setColorError] = useState("");
+  const [currentProduct, setCurrentProduct] = useState(null);
   const historyRef = useRef({ front: [], back: [], left: [], right: [] });
   const redoRef = useRef({ front: [], back: [], left: [], right: [] });
   const isApplyingRef = useRef(false);
@@ -136,44 +216,153 @@ const ToolBar = ({ manualSync }) => {
     dispatch(setSelectedType(value));
   };
 
-  const handleColorChange = (color) => {
-    dispatch(setTshirtColor(color));
+  const handleColorChange = (backendColor) => {
+    if (!backendColor) return;
+
+    /*
+     * Keep the exact backend product color value.
+     *
+     * Example:
+     * "Black" stays "Black".
+     *
+     * Do NOT store "#000000" here because checkout validates
+     * the selected color against Product.colors.
+     */
+    dispatch(
+      setTshirtColor(
+        backendColor
+      )
+    );
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     let cancelled = false;
 
     const loadColors = async () => {
       try {
-        setColorsLoading(true);
-        setColorsError("");
+        setColorLoading(true);
+        setColorError("");
 
-        const product = await catalogApi.getProductBySlug(DESIGNER_PRODUCT_SLUG);
-        const colors = normalizeBackendColors(product?.colors || []);
+        /*
+         * When DesignerPage was launched from Shop, Redux already
+         * contains the exact backend product. Use that first.
+         *
+         * Fallback keeps direct /designer navigation working.
+         */
+        const product =
+          selectedProduct ||
+          await catalogApi.getProductBySlug(
+            resolveProductSlug(
+              selectedType
+            )
+          );
 
         if (cancelled) return;
 
-        setBackendColors(colors);
+        setCurrentProduct(
+          product
+        );
 
-        if (colors.length > 0) {
-          const current = resolveColorValue(tshirtColor).toLowerCase();
-          const currentExists = colors.some(
-            (color) => color.value.toLowerCase() === current
+        const colors =
+          buildColorOptions(
+            product
           );
 
-          if (!currentExists) {
-            dispatch(setTshirtColor(colors[0].value));
+        setAvailableColors(
+          colors
+        );
+
+        if (
+          colors.length >
+          0
+        ) {
+          const exactBackendMatch =
+            colors.find(
+              (color) =>
+                String(
+                  color.backendValue
+                )
+                  .trim()
+                  .toLowerCase() ===
+                String(
+                  tshirtColor ||
+                    ""
+                )
+                  .trim()
+                  .toLowerCase()
+            );
+
+          if (
+            exactBackendMatch
+          ) {
+            /*
+             * Canonicalize only casing/value from backend.
+             */
+            if (
+              exactBackendMatch
+                .backendValue !==
+              tshirtColor
+            ) {
+              dispatch(
+                setTshirtColor(
+                  exactBackendMatch
+                    .backendValue
+                )
+              );
+            }
+
+          } else {
+
+            const currentSwatch =
+              String(
+                normalizeColor(
+                  tshirtColor
+                ) ||
+                  ""
+              )
+                .toLowerCase();
+
+            const visualMatch =
+              colors.find(
+                (color) =>
+                  String(
+                    color.swatch ||
+                      ""
+                  )
+                    .toLowerCase() ===
+                  currentSwatch
+              );
+
+            dispatch(
+              setTshirtColor(
+                visualMatch
+                  ?.backendValue ||
+                  colors[0]
+                    .backendValue
+              )
+            );
           }
         }
+
       } catch (error) {
         if (cancelled) return;
 
-        console.error("Unable to load garment colors", error);
-        setBackendColors([]);
-        setColorsError(error?.message || "Unable to load colors");
+        console.error(
+          "Unable to load garment colors",
+          error
+        );
+
+        setAvailableColors([]);
+        setCurrentProduct(null);
+
+        setColorError(
+          error?.message ||
+            "Unable to load colors"
+        );
+
       } finally {
         if (!cancelled) {
-          setColorsLoading(false);
+          setColorLoading(false);
         }
       }
     };
@@ -183,7 +372,12 @@ const ToolBar = ({ manualSync }) => {
     return () => {
       cancelled = true;
     };
-  }, [dispatch]);
+
+  }, [
+    selectedType,
+    selectedProduct,
+    dispatch,
+  ]);
 
   const triggerFileInput = () => {
     if (fileInputRef.current) {
@@ -574,77 +768,61 @@ const ToolBar = ({ manualSync }) => {
 
       {/* Left vertical sidebar */}
       <aside className="w-24 bg-white border-r flex flex-col items-center py-6 gap-4">
-        {/* Garment color selector - values loaded from backend */}
+        {/* Backend-driven garment color selector */}
         <Popover>
           <PopoverTrigger asChild>
             <button
+              type="button"
               className="relative w-14 h-14 rounded-md flex items-center justify-center transition shadow-sm text-gray-600 hover:bg-gray-100"
-              aria-label="Choose garment color"
+              aria-label="Garment Color"
               title="Garment Color"
             >
-              <Palette size={20} />
-
               <span
-                className="absolute right-2 bottom-2 w-4 h-4 rounded-full border-2 border-white shadow"
-                style={{ backgroundColor: resolveColorValue(tshirtColor) }}
+                className="w-8 h-8 rounded-full border-2 border-white shadow ring-1 ring-gray-300"
+                style={{ backgroundColor: normalizeColor(tshirtColor) || "#FFFFFF" }}
               />
+              <span className="absolute right-1 bottom-1 w-4 h-4 rounded-full bg-gray-900 text-white flex items-center justify-center text-[9px]">+</span>
             </button>
           </PopoverTrigger>
 
-          <PopoverContent
-            side="right"
-            align="center"
-            className="w-72 p-4 rounded-md shadow-xl"
-          >
+          <PopoverContent side="right" align="start" className="w-72 p-4 rounded-xl shadow-xl">
             <div>
               <h4 className="text-sm font-semibold">Garment Color</h4>
               <p className="text-xs text-muted-foreground mt-1">
-                Colors are loaded from the backend product configuration.
+                {currentProduct?.name ? `Colors available for ${currentProduct.name}` : "Choose garment color"}
               </p>
             </div>
 
-            {colorsLoading && (
-              <div className="mt-4 text-sm text-gray-500">
-                Loading colors...
-              </div>
+            {colorLoading && <div className="py-6 text-sm text-gray-500">Loading colors...</div>}
+
+            {!colorLoading && colorError && (
+              <div className="mt-4 text-sm text-red-600">{colorError}</div>
             )}
 
-            {!colorsLoading && colorsError && (
-              <div className="mt-4 text-sm text-red-600">
-                {colorsError}
-              </div>
-            )}
-
-            {!colorsLoading && !colorsError && backendColors.length === 0 && (
-              <div className="mt-4 text-sm text-gray-500">
-                No colors configured for this product.
-              </div>
-            )}
-
-            {!colorsLoading && backendColors.length > 0 && (
-              <div className="mt-4 grid grid-cols-4 gap-3">
-                {backendColors.map((color) => {
+            {!colorLoading && !colorError && availableColors.length > 0 && (
+              <div className="grid grid-cols-4 gap-3 mt-4">
+                {availableColors.map((color) => {
                   const selected =
-                    resolveColorValue(tshirtColor).toLowerCase() ===
-                    color.value.toLowerCase();
+                    String(normalizeColor(tshirtColor) || "").toUpperCase() ===
+                    String(color.swatch).toUpperCase();
 
                   return (
                     <button
                       type="button"
-                      key={`${color.label}-${color.value}`}
-                      onClick={() => handleColorChange(color.value)}
-                      className={`flex flex-col items-center gap-1.5 rounded-lg p-2 transition hover:bg-gray-100 ${
-                        selected ? "ring-2 ring-black bg-gray-50" : ""
-                      }`}
-                      title={color.label}
-                      aria-label={`Choose ${color.label}`}
+                      key={color.backendValue}
+                      onClick={() => handleColorChange(color.backendValue)}
+                      className="flex flex-col items-center gap-2"
+                      title={String(color.label)}
                     >
                       <span
-                        className="w-8 h-8 rounded-full border shadow-sm"
-                        style={{ backgroundColor: color.value }}
+                        className={`block w-10 h-10 rounded-full border shadow-sm ${
+                          selected
+                            ? "ring-2 ring-black ring-offset-2"
+                            : "ring-1 ring-gray-200"
+                        }`}
+                        style={{ backgroundColor: color.swatch }}
                       />
-
-                      <span className="text-[10px] text-gray-600 max-w-[54px] truncate">
+                      <span className="text-[10px] text-gray-600 max-w-[58px] truncate">
                         {color.label}
                       </span>
                     </button>
@@ -653,9 +831,26 @@ const ToolBar = ({ manualSync }) => {
               </div>
             )}
 
-            <div className="mt-4 border-t pt-3 text-xs text-gray-500">
-              Selected: {resolveColorValue(tshirtColor)}
-            </div>
+            {!colorLoading && !colorError && availableColors.length === 0 && (
+              <div className="mt-4 text-sm text-gray-500">No colors configured for this garment.</div>
+            )}
+
+            {!colorLoading && availableColors.length > 0 && (
+              <div className="mt-5 pt-4 border-t">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-500">Selected</span>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="w-5 h-5 rounded-full border"
+                      style={{ backgroundColor: normalizeColor(tshirtColor) || "#FFFFFF" }}
+                    />
+                    <span className="text-xs font-medium">
+                      {normalizeColor(tshirtColor) || "#FFFFFF"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
           </PopoverContent>
         </Popover>
 
